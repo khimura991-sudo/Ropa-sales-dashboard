@@ -141,7 +141,10 @@
     tk.append('Sold ', el('b', '', int(c.u)), ' units for ', el('b', '', peso(c.s)), ' at a recovery rate of ', el('b', '', pct(c.rec)), ` against the ${pct(T).replace('.0', '')} target. `, el('b', '', int(lossUnits)), ' of those units sold at a loss.');
 
     const inv = D.inventory, gt = inv.rows.find((r) => r.status === 'GRAND TOTAL') || {};
-    const invUnits = month.toLowerCase() === inv.cur.toLowerCase() ? gt.units_cur : month.toLowerCase() === inv.prev.toLowerCase() ? gt.units_prev : null;
+    const curIdx = MONTHS.findIndex((x) => x.toLowerCase() === String(inv.cur).toLowerCase());
+    const isCur = month.toLowerCase() === String(inv.cur).toLowerCase(), isPrev = month.toLowerCase() === String(inv.prev).toLowerCase();
+    const isLater = !isCur && !isPrev && curIdx >= 0 && i > curIdx;
+    const invUnits = isCur || isLater ? gt.units_cur : isPrev ? gt.units_prev : null;
     const ptsSpan = (() => { const s = el('span'); const d = c.rec != null && p && p.rec != null ? (c.rec - p.rec) * 100 : null;
       if (d == null) { s.textContent = '— pts ' + lm; return s; } s.className = Math.abs(d) < 1e-9 ? 'flat' : d > 0 ? 'good' : 'bad'; s.textContent = (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '● ') + Math.abs(d).toFixed(1) + ' pts ' + lm; return s; })();
     $('kpis').replaceChildren(
@@ -149,8 +152,9 @@
       kpiCard('Total units sold', int(c.u), [delta(chg(c.u, p && p.u), true, lm), delta(chg(c.u, ly && ly.u), true, 'vs same month 2025')]),
       kpiCard('Recovery rate', pct(c.rec), [delta(c.rec == null ? null : (c.rec - T) / T, true, `vs ${pct(T).replace('.0', '')} target`), ptsSpan]),
       kpiCard('Total gain / (loss)', peso(c.g), [delta(lchg(c.g, p && p.g), false, 'loss ' + lm), delta(lchg(c.g, ly && ly.g), false, 'loss vs same month 2025')]),
-      kpiCard('Total inventory', invUnits == null ? '—' : int(invUnits), invUnits == null ? [el('span', '', 'No inventory snapshot for this month')] :
-        [...(month.toLowerCase() === inv.cur.toLowerCase() ? [delta(chg(gt.units_cur, gt.units_prev), false, 'vs ' + inv.prev)] : []), delta((invUnits - IT) / IT, false, `vs ${IT} target`)]),
+      kpiCard(isLater ? `Total inventory (${inv.cur})` : 'Total inventory', invUnits == null ? '—' : int(invUnits), invUnits == null ? [el('span', '', 'No inventory snapshot for this month')] :
+        [...(isLater ? [el('span', 'flat', `Latest snapshot: ${inv.cur}. ${month} not in the inventory sheet yet`)] : []),
+         ...(isCur || isLater ? [delta(chg(gt.units_cur, gt.units_prev), false, 'vs ' + inv.prev)] : []), delta((invUnits - IT) / IT, false, `vs ${IT} target`)]),
     );
 
     drawMonthly($('line'), D.monthly, 'sales', 'line', i);
